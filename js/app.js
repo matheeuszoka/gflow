@@ -1,3 +1,4 @@
+import { createMarketingStoryboard } from "./marketing.js";
 import {
   exportDemo,
   importDemoFile,
@@ -930,6 +931,12 @@ function bindChrome() {
       name,
       theme: cloneTheme(preset.colors, { presetId: preset.id }),
     });
+    Object.assign(created, createMarketingStoryboard({
+      name,
+      audience: document.getElementById("marketing-audience").value,
+      benefit: document.getElementById("marketing-benefit").value,
+      cta: document.getElementById("marketing-cta").value,
+    }));
     await putProject(created);
     document.getElementById("modal-new-project").close();
     await openProject(created.id);

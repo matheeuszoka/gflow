@@ -63,7 +63,7 @@
 <body class="is-booting">
   <header class="topbar">
     <div class="topbar-brand">
-      <span class="logo">Guia<span>Flow</span></span>
+      <span class="logo">Guia<span>Flow</span> Marketing</span>
       <nav class="topbar-nav" id="topbar-nav-editor" hidden aria-label="Projeto">
         <button type="button" class="btn btn-ghost btn-nav-back" id="btn-projects" title="Projetos" data-i18n-title="topbar.projects">
           <svg class="btn-ico" aria-hidden="true"><use href="#i-folder"></use></svg>
@@ -672,9 +672,19 @@
 
   <dialog class="studio-modal" id="modal-new-project">
     <form method="dialog" id="form-new-project" class="studio-modal-body">
-      <h3 data-i18n="modal.newProject">Novo projeto</h3>
+      <h3>Nova demonstração comercial</h3>
+      <p>Monte um roteiro B2B ou SaaS com abertura, benefício e chamada para ação. Depois, adicione suas capturas e personalize as cenas.</p>
       <label><span data-i18n="modal.name">Nome</span>
         <input type="text" id="new-project-name" placeholder="Ex.: Demo onboarding" data-i18n-placeholder="modal.newProjectPlaceholder" required maxlength="80" />
+      </label>
+      <label>Público-alvo
+        <input id="marketing-audience" type="text" placeholder="Ex.: gestores de logística" maxlength="120" required />
+      </label>
+      <label>Principal benefício
+        <input id="marketing-benefit" type="text" placeholder="Ex.: acompanhe a fila de caminhões em um só lugar" maxlength="240" required />
+      </label>
+      <label>Chamada para ação
+        <input id="marketing-cta" type="text" value="Agende uma demonstração" maxlength="160" required />
       </label>
       <p class="theme-section-label" data-i18n="modal.initialTheme">Tema inicial</p>
       <div class="theme-presets" id="new-project-themes"></div>
