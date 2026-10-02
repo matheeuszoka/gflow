@@ -204,6 +204,7 @@ body.standalone .topbar-title { font-size: 0.78rem; }
 
 function pickRecorderMime() {
   const candidates = [
+    "video/mp4;codecs=avc1.42001f,mp4a.40.2",
     "video/mp4;codecs=avc1.42001f",
     "video/mp4;codecs=avc1",
     "video/mp4",
@@ -283,6 +284,21 @@ async function renderExportAudio(demo) {
   const steps = demo.steps || [];
   const speak = demo.narration.enabled !== false;
   const sampleRate = 48000;
+  if (typeof OfflineAudioContext === "undefined") return null;
+  const decoder = new OfflineAudioContext(2, 1, sampleRate);
+  const cache = new Map();
+  // Measure the actual clips before laying out either audio or video.
+  for (const step of steps) {
+    const clips = speak ? playableNarrationClips(step, demo) : [];
+    let seconds = 0;
+    for (const url of clips) {
+      seconds += (await decodeExportClip(decoder, url, cache)).duration;
+    }
+    if (seconds > 0) {
+      const rate = normalizeCaptionPlaybackRate(step?.narrationAudio?.playbackRate);
+      step.holdSeconds = Math.max(resolveHoldMs(step, demo) / 1000, seconds / rate + 0.15);
+    }
+  }
   let cursor = 0;
   const placements = [];
   for (const step of steps) {
@@ -300,7 +316,6 @@ async function renderExportAudio(demo) {
   if (typeof OfflineAudioContext === "undefined") return null;
 
   const ctx = new OfflineAudioContext(2, Math.ceil(duration * sampleRate), sampleRate);
-  const cache = new Map();
   const windows = [];
 
   for (const place of placements) {
@@ -431,7 +446,6 @@ async function exportVideoWebCodecs(demo, { onProgress, canvas, signal, images, 
   const W = 1920;
   const H = 1080;
   const fps = 30;
-  const frameUs = Math.round(1_000_000 / fps);
   const cvs = canvas || document.createElement("canvas");
   cvs.width = W;
   cvs.height = H;
@@ -478,8 +492,8 @@ async function exportVideoWebCodecs(demo, { onProgress, canvas, signal, images, 
       if (encodeError) throw encodeError;
     }
     const frame = new VideoFrame(cvs, {
-      timestamp: frameIndex * frameUs,
-      duration: frameUs,
+      timestamp: Math.round(frameIndex * 1_000_000 / fps),
+      duration: Math.round((frameIndex + 1) * 1_000_000 / fps) - Math.round(frameIndex * 1_000_000 / fps),
     });
     encoder.encode(frame, { keyFrame: Boolean(keyFrame) });
     frame.close();
@@ -588,8 +602,11 @@ async function exportVideoMediaRecorder(demo, { onProgress, canvas, signal, imag
     requestAnimationFrame(loop);
   }
   loop();
-  audioSource?.start();
   recorder.start(200);
+  audioSource?.start();
+  const clockStart = audioCtx ? audioCtx.currentTime : performance.now() / 1000;
+  const elapsed = () => (audioCtx ? audioCtx.currentTime : performance.now() / 1000) - clockStart;
+  let stepStart = 0;
 
   try {
     for (let i = 0; i < steps.length; i++) {
@@ -606,13 +623,14 @@ async function exportVideoMediaRecorder(demo, { onProgress, canvas, signal, imag
         ...timing,
       };
       onProgress?.(t("export.recordStep", { i: i + 1, n: steps.length }));
-      const t0 = performance.now();
-      while (performance.now() - t0 < span.seconds * 1000) {
+      const stepEnd = stepStart + span.seconds;
+      while (elapsed() < stepEnd) {
         if (signal?.aborted) throw new DOMException(t("export.cancelled"), "AbortError");
-        scene.at = performance.now() - t0;
+        scene.at = Math.max(0, (elapsed() - stepStart) * 1000);
         await waitMs(16, signal);
       }
       scene.at = timing.holdEnd;
+      stepStart = stepEnd;
     }
     await waitMs(600, signal);
   } finally {
@@ -630,6 +648,8 @@ async function exportVideoMediaRecorder(demo, { onProgress, canvas, signal, imag
 }
 
 export async function exportVideo(demo, { onProgress, canvas, signal } = {}) {
+  // Export timing must not modify the saved project.
+  demo = structuredClone(demo);
   const steps = demo.steps || [];
   if (!steps.length) throw new Error(t("err.noStepsRecord"));
 
@@ -907,14 +927,9 @@ function renderFrame(ctx, scene, theme) {
 
   ctx.fillStyle = "#111827";
   ctx.fillRect(0, 0, W, 56);
-  ctx.fillStyle = accent;
-  ctx.font = "800 26px Segoe UI, Helvetica Neue, Arial, sans-serif";
-  ctx.fillText("Guia", 32, 38);
-  ctx.fillStyle = "#fff";
-  ctx.fillText("Flow", 98, 38);
   ctx.font = "500 16px Segoe UI, Helvetica Neue, Arial, sans-serif";
   ctx.fillStyle = "#9ca3af";
-  ctx.fillText(t("player.narratedTour"), 248, 38);
+
   ctx.textAlign = "right";
   ctx.fillStyle = "#e5e7eb";
   ctx.font = "600 16px Segoe UI, Helvetica Neue, Arial, sans-serif";
