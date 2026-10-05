@@ -6,6 +6,8 @@ base=/home/mpg/gflow-tutorials
 release="$base/releases/${GITHUB_SHA:?}-${GITHUB_RUN_ID:?}"
 mkdir -p "$release" /home/mpg/.config/systemd/user
 rsync -a --exclude=.git --exclude=node_modules --exclude=.github ./ "$release/"
+# Give each tutorial release its own asset URLs to avoid cached marketing modules.
+sed -i "s|a/10/|a/tutorials-${GITHUB_SHA}/|g" "$release/index.html" "$release/view.html" "$release/ajuda.html"
 previous=$(readlink -f "$base/current" || true)
 ln -sfn "$release" "$base/current.next"
 mv -Tf "$base/current.next" "$base/current"

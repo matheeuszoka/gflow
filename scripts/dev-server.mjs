@@ -48,7 +48,7 @@ const server = createServer(async (req, res) => {
   }
   try {
     const body = await readFile(file);
-    res.writeHead(200, { "content-type": types[extname(file)] || "application/octet-stream" });
+    res.writeHead(200, { "content-type": types[extname(file)] || "application/octet-stream", "cache-control": "no-cache" });
     res.end(body);
   } catch {
     res.writeHead(404).end("not found");
