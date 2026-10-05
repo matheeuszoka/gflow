@@ -1,0 +1,22 @@
+name: Deploy GuiaFlow Tutorials
+on:
+  push:
+    branches: [tutorials]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: gflow-tutorials
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.repository == 'matheeuszoka/gflow' && github.ref == 'refs/heads/tutorials'
+    runs-on: [self-hosted, Linux, X64, gflow]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: npm ci --omit=dev
+      - run: npm test
+      - run: bash deploy/deploy-tutorials.sh

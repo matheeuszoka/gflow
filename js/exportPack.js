@@ -1,3 +1,4 @@
+import { exportWav } from "./exportWav.js";
 import {
   encodeAssetPath,
   resolveImageSrc,
@@ -440,7 +441,7 @@ async function canUseWebCodecsMp4(width, height) {
   return null;
 }
 
-async function exportVideoWebCodecs(demo, { onProgress, canvas, signal, images, codec, audioBuffer }) {
+async function exportVideoWebCodecs(demo, { onProgress, canvas, signal, images, codec, audioBuffer, returnBlob = false }) {
   const { Muxer, ArrayBufferTarget } = await import("../vendor/mp4-muxer/mp4-muxer.mjs");
   const steps = demo.steps || [];
   const W = 1920;
@@ -538,6 +539,7 @@ async function exportVideoWebCodecs(demo, { onProgress, canvas, signal, images, 
 
   const blob = new Blob([target.buffer], { type: "video/mp4" });
   if (!blob.size) throw new Error(t("err.emptyRecording"));
+  if (returnBlob) return blob;
   downloadBlob(blob, `${slugifyFilename(demo?.name, "demo")}.mp4`);
   return { size: blob.size, ext: "mp4" };
 }
@@ -660,6 +662,28 @@ export async function exportVideo(demo, { onProgress, canvas, signal } = {}) {
   const H = 1080;
 
   const codec = await canUseWebCodecsMp4(W, H);
+  if (codec && audioBuffer) {
+    let localMux = false;
+    try {
+      const available = await fetch("/api/local-mux", { signal });
+      localMux = available.ok && (await available.json()).available === true;
+    } catch (err) { if (signal?.aborted) throw err; }
+    if (localMux) {
+      const video = await exportVideoWebCodecs(demo, {
+        onProgress, canvas, signal, images, codec, audioBuffer: null, returnBlob: true,
+      });
+      onProgress?.(t("export.encodeNarration"));
+      const response = await fetch("/api/local-mux", {
+        method: "POST", signal,
+        headers: { "content-type": "application/octet-stream", "x-video-bytes": String(video.size) },
+        body: new Blob([video, exportWav(audioBuffer)]),
+      });
+      if (!response.ok) throw new Error("Falha ao montar o MP4 local. Tente novamente com o servidor em execução.");
+      const blob = await response.blob();
+      downloadBlob(blob, `${slugifyFilename(demo?.name, "demo")}.mp4`);
+      return { size: blob.size, ext: "mp4" };
+    }
+  }
   const aac = await canEncodeAac(audioBuffer);
   if (codec && (!audioBuffer || aac)) {
     try {

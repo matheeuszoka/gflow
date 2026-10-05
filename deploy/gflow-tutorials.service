@@ -1,0 +1,17 @@
+[Unit]
+Description=GuiaFlow Tutorials
+After=network.target
+[Service]
+WorkingDirectory=/home/mpg/gflow-tutorials/current
+Environment=PORT=4173
+Environment=HOST=127.0.0.1
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node scripts/dev-server.mjs
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+MemoryMax=2G
+TasksMax=128
+[Install]
+WantedBy=default.target
