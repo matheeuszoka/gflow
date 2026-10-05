@@ -6,6 +6,10 @@ import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const port = Number(process.env.PORT) || 4174;
+if (process.env.NODE_ENV === "production" && !process.env.PUBLIC_ORIGIN) {
+  const deployment = JSON.parse(await readFile(new URL("../deploy/production.json", import.meta.url), "utf8"));
+  process.env.PUBLIC_ORIGIN = new URL(deployment.publicOrigin).origin;
+}
 const types = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
