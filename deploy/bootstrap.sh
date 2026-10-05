@@ -3,7 +3,7 @@ set -euo pipefail
 [ "$(id -u)" = 0 ] || { echo 'Execute com sudo'; exit 1; }
 apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs npm ffmpeg rsync curl git libicu-dev
-install -d -o mpg -g mpg /home/mpg/gflow/releases
+install -d -o mpg -g mpg /home/mpg/gflow /home/mpg/gflow/releases
 cat > /etc/systemd/system/gflow.service <<'UNIT'
 [Unit]
 Description=GuiaFlow Marketing
