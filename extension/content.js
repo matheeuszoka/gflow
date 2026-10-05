@@ -4,6 +4,21 @@
 
   let active = false;
   let awaitingHotspot = false;
+  const captureStyle = document.createElement("style");
+  captureStyle.textContent = `
+    .mat-ripple-element, .mat-mdc-button-ripple, .mdc-button__ripple,
+    .v-ripple__container, .v-ripple__animation, .p-ink,
+    .MuiTouchRipple-root, .waves-ripple {
+      visibility: hidden !important;
+    }
+    * { -webkit-tap-highlight-color: transparent !important; }
+  `;
+  let restoreCaptureTimer;
+  function prepareCleanCapture() {
+    if (!captureStyle.isConnected) document.documentElement.append(captureStyle);
+    clearTimeout(restoreCaptureTimer);
+    restoreCaptureTimer = setTimeout(() => captureStyle.remove(), 5000);
+  }
 
   const host = document.createElement("div");
   host.setAttribute("data-guia-capture", "");
@@ -122,6 +137,8 @@
   }
 
   function applyState(state) {
+    clearTimeout(restoreCaptureTimer);
+    captureStyle.remove();
     if (!state?.active || state.show === false) {
       active = false;
       awaitingHotspot = false;
@@ -205,6 +222,7 @@
       }
       // hazard: the toolbar is painted in the tab, so it must be hidden before the screenshot or it shows up in every step
       host.style.setProperty("visibility", "hidden", "important");
+      prepareCleanCapture();
       requestAnimationFrame(() => send(payload));
     },
     true
@@ -217,6 +235,7 @@
   if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
     chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       if (msg?.type === "HIDE_OVERLAY") {
+        prepareCleanCapture();
         host.style.setProperty("visibility", "hidden", "important");
         requestAnimationFrame(() => requestAnimationFrame(() => sendResponse({ ok: true })));
         return true;

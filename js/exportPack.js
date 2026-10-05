@@ -1,3 +1,4 @@
+import { exportWav } from "./exportWav.js";
 import {
   encodeAssetPath,
   resolveImageSrc,
@@ -440,7 +441,7 @@ async function canUseWebCodecsMp4(width, height) {
   return null;
 }
 
-async function exportVideoWebCodecs(demo, { onProgress, canvas, signal, images, codec, audioBuffer }) {
+async function exportVideoWebCodecs(demo, { onProgress, canvas, signal, images, codec, audioBuffer, returnBlob = false }) {
   const { Muxer, ArrayBufferTarget } = await import("../vendor/mp4-muxer/mp4-muxer.mjs");
   const steps = demo.steps || [];
   const W = 1920;
@@ -517,7 +518,7 @@ async function exportVideoWebCodecs(demo, { onProgress, canvas, signal, images, 
         at,
         ...timing,
       };
-      renderFrame(ctx, scene, theme);
+      renderFrame(ctx, scene, theme, demo.playback?.showTextBoxes === true);
       await encodeCanvasFrame(frameIndex % fps === 0);
     }
   }
@@ -538,6 +539,7 @@ async function exportVideoWebCodecs(demo, { onProgress, canvas, signal, images, 
 
   const blob = new Blob([target.buffer], { type: "video/mp4" });
   if (!blob.size) throw new Error(t("err.emptyRecording"));
+  if (returnBlob) return blob;
   downloadBlob(blob, `${slugifyFilename(demo?.name, "demo")}.mp4`);
   return { size: blob.size, ext: "mp4" };
 }
@@ -598,7 +600,7 @@ async function exportVideoMediaRecorder(demo, { onProgress, canvas, signal, imag
 
   function loop() {
     if (!looping) return;
-    renderFrame(ctx, scene, demo.theme || {});
+    renderFrame(ctx, scene, demo.theme || {}, demo.playback?.showTextBoxes === true);
     requestAnimationFrame(loop);
   }
   loop();
@@ -660,6 +662,30 @@ export async function exportVideo(demo, { onProgress, canvas, signal } = {}) {
   const H = 1080;
 
   const codec = await canUseWebCodecsMp4(W, H);
+  if (codec && audioBuffer) {
+    let localMux = false;
+    try {
+      const available = await fetch("/api/local-mux", { signal });
+      localMux = available.ok && (await available.json()).available === true;
+    } catch (err) { if (signal?.aborted) throw err; }
+    if (localMux) {
+      const video = await exportVideoWebCodecs(demo, {
+        onProgress, canvas, signal, images, codec, audioBuffer: null, returnBlob: true,
+      });
+      onProgress?.(t("export.encodeNarration"));
+      const upload = new Blob([video, exportWav(audioBuffer)]);
+      if (upload.size > 90 * 1024 * 1024) throw new Error("A exportação excede 90 MB. Divida a apresentação em vídeos menores.");
+      const response = await fetch("/api/local-mux", {
+        method: "POST", signal,
+        headers: { "content-type": "application/octet-stream", "x-video-bytes": String(video.size) },
+        body: upload,
+      });
+      if (!response.ok) throw new Error(response.status === 429 ? "Outra exportação está em andamento. Tente novamente em instantes." : "Falha ao montar o MP4 no servidor. Tente novamente.");
+      const blob = await response.blob();
+      downloadBlob(blob, `${slugifyFilename(demo?.name, "demo")}.mp4`);
+      return { size: blob.size, ext: "mp4" };
+    }
+  }
   const aac = await canEncodeAac(audioBuffer);
   if (codec && (!audioBuffer || aac)) {
     try {
@@ -914,7 +940,7 @@ function drawPopover(ctx, theme, step, index, total, hs, bounds) {
   ctx.textAlign = "left";
 }
 
-function renderFrame(ctx, scene, theme) {
+function renderFrame(ctx, scene, theme, showTextBoxes = false) {
   const W = ctx.canvas.width;
   const H = ctx.canvas.height;
   const accent = theme.accent || "#2A9D8F";
@@ -1035,7 +1061,7 @@ function renderFrame(ctx, scene, theme) {
   }
 
   if (step.type !== "slide") {
-    drawPopover(ctx, theme, step, index, total, hs, { x: 8, y: 56, w: W - 16, h: H - 64 });
+    if (showTextBoxes) drawPopover(ctx, theme, step, index, total, hs, { x: 8, y: 56, w: W - 16, h: H - 64 });
   }
 
   const caption = String(step.caption || "").trim();

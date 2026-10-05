@@ -364,7 +364,7 @@ export function createPlayer(ctx) {
       progressText: t("player.progress"),
       onPopoverRender: (popover) => {
         renderDemoPopoverFooter(popover);
-        setPopoverHiddenForSlide(steps[activeIndex]?.type === "slide");
+        setPopoverHiddenForSlide(steps[activeIndex]?.type === "slide" || demo.playback?.showTextBoxes !== true);
         armAutoplay();
       },
       steps: steps.map((step) => ({

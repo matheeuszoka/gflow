@@ -1,0 +1,25 @@
+name: Deploy GuiaFlow Marketing
+on:
+  push:
+    branches: [marketing]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: gflow-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.repository == 'matheeuszoka/gflow' && github.ref == 'refs/heads/marketing'
+    runs-on: [self-hosted, Linux, X64, gflow]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install and test
+        run: |
+          npm ci --omit=dev
+          npm test
+      - name: Deploy and check health
+        run: bash deploy/deploy.sh

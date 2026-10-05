@@ -68,6 +68,12 @@ import {
 import { COMPACT_LANDSCAPE_MQ, COMPACT_TOUCH_MQ, isCompactLandscape, isCompactTouch } from "./compact.js";
 
 let project = null;
+const marketingTextBoxes = document.getElementById("marketing-text-boxes");
+marketingTextBoxes.addEventListener("change", () => {
+  if (!project) return;
+  ensurePlayback(project).showTextBoxes = marketingTextBoxes.checked;
+  onChange();
+});
 let selectedIndex = 0;
 let selectedNewThemeId = THEME_PRESETS[0].id;
 let themeSelection = { kind: "preset", id: THEME_PRESETS[0].id };
@@ -264,6 +270,7 @@ function getDemo() {
 
 function setDemo(next) {
   project = next;
+  marketingTextBoxes.checked = project?.playback?.showTextBoxes === true;
 }
 
 function getSelectedIndex() {
@@ -728,6 +735,7 @@ async function openProject(id, { autoPreview = false } = {}) {
     ensurePlayback(loaded);
     ensureNarration(loaded);
     project = loaded;
+    marketingTextBoxes.checked = project.playback?.showTextBoxes === true;
     selectedIndex = 0;
     await attachSavedHistory(project);
     await setActiveProjectId(id);

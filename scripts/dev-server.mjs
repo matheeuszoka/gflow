@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { handleLocalMux } from "./local-mux.mjs";
 import { readFile } from "node:fs/promises";
 import { extname, join, normalize, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,6 +9,7 @@ const port = Number(process.env.PORT) || 4174;
 const types = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8",
   ".json": "application/json; charset=utf-8",
   ".svg": "image/svg+xml",
@@ -21,12 +23,20 @@ const types = {
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url || "/", "http://localhost");
+  if (url.pathname === "/healthz") { res.writeHead(200, { "content-type": "application/json" }).end('{"ok":true}'); return; }
+  if (url.pathname === "/api/local-mux") {
+    await handleLocalMux(req, res, port);
+    return;
+  }
   let pathname = decodeURIComponent(url.pathname);
   pathname = pathname.replace(/^\/a\/[^/]+/, "") || "/";
   if (/^\/v\/([A-Za-z0-9_-]{11}|[a-f0-9]{32})\/?$/i.test(pathname)) {
     pathname = "/view.html";
   }
   if (pathname.endsWith("/")) pathname += "index.html";
+  if (!/^\/(index\.html|view\.html|ajuda\.html|favicon[^/]*|apple-touch-icon\.png|og-share\.png|(?:js|css|data|demo|vendor|downloads)\/[^\0]*)$/.test(pathname) || pathname.split("/").some(part => part.startsWith("."))) {
+    res.writeHead(404).end(); return;
+  }
   const file = normalize(join(root, pathname));
   if (!file.startsWith(root.endsWith(sep) ? root : root + sep) && file !== root) {
     res.writeHead(403).end();
@@ -41,6 +51,6 @@ const server = createServer(async (req, res) => {
   }
 });
 
-server.listen(port, () => {
+server.listen(port, process.env.HOST || "127.0.0.1", () => {
   console.log(`http://localhost:${port}`);
 });
